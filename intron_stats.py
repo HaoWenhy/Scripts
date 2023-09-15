@@ -4,6 +4,7 @@ import re
 import concurrent.futures
 import argparse
 import pandas as pd
+import os
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(description='提取内含子信息并计算统计信息')
@@ -91,8 +92,9 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         intron_sequences.extend(intron_sequences_part)
         known_transcripts.update(future_to_transcript_id_set[future])
 
-# 写入内含子序列到sre.introns.fasta文件
-with open('sre.introns.fasta', 'w') as intron_fasta:
+# 写入内含子序列到introns.fasta文件
+intron_fasta_filename = 'introns.fasta'
+with open(intron_fasta_filename, 'w') as intron_fasta:
     for i, sequence in enumerate(intron_sequences):
         intron_fasta.write(f">Intron_{i+1}\n{sequence}\n")
 
@@ -109,20 +111,21 @@ total_gc_count = sum(sequence.count('G') + sequence.count('C') for sequence in i
 total_base_count = sum(len(sequence) for sequence in intron_sequences)
 gc_content = (total_gc_count / total_base_count) * 100 if total_base_count > 0 else 0
 
-# 打印统计信息
-print(f"内含子总长度: {total_intron_length} bp")
-print(f"内含子个数: {num_introns}")
-print(f"内含子平均长度: {average_intron_length:.2f} bp")
-print(f"内含子中位数长度: {median_intron_length:.2f} bp")
-print(f"内含子GC含量: {gc_content:.2f}%")
-
 # 创建统计结果的DataFrame
 data = {
-    'Total Intron Length (bp)': [total_intron_length],
-    'Number of Introns': [num_introns],
-    'Average Intron Length (bp)': [average_intron_length],
-    'Median Intron Length (bp)': [median_intron_length],
-    'Intron GC Content (%)': [gc_content]
+    'Total Intron Length (bp)': {total_intron_length} bp,
+    'Number of Introns': {num_introns},
+    'Average Intron Length (bp)': {average_intron_length:.2f} bp,
+    'Median Intron Length (bp)': {median_intron_length:.2f} bp,
+    'Intron GC Content (%)': {gc_content:.2f}%
 }
 
-# 将统计结果写入
+# 将统计结果写入CSV文件
+stats_df = pd.DataFrame(data)
+stats_df.to_csv(output_file, index=False)
+
+# 删除中间文件sre.introns.fasta
+if os.path.exists(intron_fasta_filename):
+    os.remove(intron_fasta_filename)
+
+print(f"统计结果已写入 {output_file}")
